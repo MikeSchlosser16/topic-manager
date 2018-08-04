@@ -1,0 +1,70 @@
+import com.bmuschko.gradle.docker.tasks.image.DockerBuildImage
+import com.bmuschko.gradle.docker.tasks.container.DockerCreateContainer
+import com.bmuschko.gradle.docker.tasks.container.DockerStartContainer
+import com.bmuschko.gradle.docker.tasks.container.DockerStopContainer
+import com.bmuschko.gradle.docker.tasks.container.DockerRemoveContainer
+
+buildscript {
+	ext {
+		springBootVersion = '2.0.4.RELEASE'
+        gradleDockerVersion = '3.2.5'
+    }
+	repositories {
+        maven {
+            url 'https://plugins.gradle.org/m2/'
+        }
+    }
+	dependencies {
+		classpath("org.springframework.boot:spring-boot-gradle-plugin:${springBootVersion}")
+        classpath("com.bmuschko:gradle-docker-plugin:${gradleDockerVersion}")
+    }
+}
+
+apply plugin: 'java'
+apply plugin: 'eclipse'
+apply plugin: 'org.springframework.boot'
+apply plugin: 'io.spring.dependency-management'
+apply plugin: 'com.bmuschko.docker-remote-api'
+
+
+group = 'com.mikeschlosser16'
+version = '0.0.1-SNAPSHOT'
+
+repositories {
+	mavenCentral()
+    maven {
+        url 'https://plugins.gradle.org/m2/'
+    }
+}
+
+dependencies {
+	compile('org.springframework.boot:spring-boot-starter-web')
+    testCompile('org.springframework.boot:spring-boot-starter-test')
+}
+
+task createDockerImage(type: DockerBuildImage) {
+    inputDir = file('.')
+    tags = ['mikeschlosser16/topic-manager']
+}
+
+task createDockerContainer(type: DockerCreateContainer) {
+    dependsOn createDockerImage
+    targetImageId { createDockerImage.getImageId() }
+    portBindings = ['8080:8080']
+    exposePorts("tcp", [8080])
+    containerName = "topicmanager"
+}
+
+task startContainer(type: DockerStartContainer) {
+    dependsOn createDockerContainer
+    targetContainerId { createDockerContainer.getContainerId() }
+}
+
+task stopContainer(type: DockerStopContainer) {
+    targetContainerId { "topicmanager" }
+}
+
+task removeContainer(type: DockerRemoveContainer) {
+    dependsOn stopContainer
+    targetContainerId { "topicmanager" }
+}
